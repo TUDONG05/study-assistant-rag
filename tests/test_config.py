@@ -1,0 +1,63 @@
+from __future__ import annotations
+
+import pytest
+
+from src.config import AppSettings, ConfigurationError, StorageMode, load_settings
+
+CONFIG_ENVIRONMENT_VARIABLES = (
+    "CHAT_MODEL",
+    "EMBEDDING_DIMENSION",
+    "EMBEDDING_MODEL",
+    "MAX_REQUESTS_PER_SESSION",
+    "MAX_UPLOAD_MB",
+    "QDRANT_API_KEY",
+    "QDRANT_PATH",
+    "QDRANT_URL",
+    "REQUEST_TIMEOUT_MS",
+    "STORAGE_MODE",
+)
+
+
+@pytest.fixture(autouse=True)
+def clear_config_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    for name in CONFIG_ENVIRONMENT_VARIABLES:
+        monkeypatch.delenv(name, raising=False)
+
+
+def test_load_settings_uses_safe_defaults() -> None:
+    settings = load_settings({})
+
+    assert settings.storage_mode is StorageMode.LOCAL
+    assert settings.chat_model == "gemini-3.7-flash"
+    assert settings.embedding_model == "gemini-embedding-2"
+    assert settings.embedding_dimension == 768
+
+
+def test_environment_takes_precedence_over_streamlit_secrets(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("CHAT_MODEL", "model-from-environment")
+
+    settings = load_settings({"CHAT_MODEL": "model-from-secrets"})
+
+    assert settings.chat_model == "model-from-environment"
+
+
+def test_cloud_mode_requires_both_credentials() -> None:
+    with pytest.raises(ConfigurationError, match="QDRANT_URL"):
+        load_settings({"STORAGE_MODE": "cloud"})
+
+
+def test_invalid_integer_has_actionable_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("MAX_UPLOAD_MB", "many")
+
+    with pytest.raises(ConfigurationError, match="MAX_UPLOAD_MB"):
+        load_settings({})
+
+
+def test_public_diagnostics_never_contains_credentials() -> None:
+    settings = AppSettings(qdrant_api_key="qdrant-private")
+
+    serialized = repr(settings.public_diagnostics())
+
+    assert "qdrant-private" not in serialized
