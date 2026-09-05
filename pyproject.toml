@@ -1,0 +1,37 @@
+[project]
+name = "study-assistant-rag"
+version = "0.1.0"
+description = "Vietnamese study assistant powered by an explicit Advanced RAG pipeline."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "google-genai==2.22.0",
+    "qdrant-client==1.19.0",
+    "streamlit==1.63.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["B", "E", "F", "I", "SIM", "UP"]
+
+[tool.mypy]
+python_version = "3.11"
+check_untyped_defs = true
+disallow_untyped_defs = true
+follow_imports = "skip"
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_return_any = true
+warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = ["google.*", "qdrant_client.*", "streamlit.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+addopts = "-q"
+pythonpath = ["."]
+testpaths = ["tests"]
