@@ -48,4 +48,5 @@ node_modules/
 *.swo
 
 # Runtime output
+.data/
 *.log
