@@ -6,6 +6,9 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "google-genai==2.22.0",
+    "pypdf==6.17.0",
+    "python-docx==1.2.0",
+    "python-pptx==1.0.2",
     "qdrant-client==1.19.0",
     "streamlit==1.63.0",
 ]
@@ -28,7 +31,7 @@ warn_return_any = true
 warn_unused_ignores = true
 
 [[tool.mypy.overrides]]
-module = ["google.*", "qdrant_client.*", "streamlit.*"]
+module = ["docx.*", "google.*", "pptx.*", "pypdf.*", "qdrant_client.*", "streamlit.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
