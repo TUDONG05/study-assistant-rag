@@ -25,7 +25,11 @@ def parse_document(
 ) -> ParsedDocument:
     try:
         if upload.kind is DocumentKind.PDF:
-            blocks = _parse_pdf(upload, max_pages=max_pages)
+            blocks = _parse_pdf(
+                upload,
+                max_pages=max_pages,
+                max_extracted_chars=max_extracted_chars,
+            )
         elif upload.kind is DocumentKind.DOCX:
             blocks = _parse_docx(upload)
         else:
@@ -51,7 +55,12 @@ def parse_document(
     )
 
 
-def _parse_pdf(upload: ValidatedUpload, *, max_pages: int) -> list[ParsedBlock]:
+def _parse_pdf(
+    upload: ValidatedUpload,
+    *,
+    max_pages: int,
+    max_extracted_chars: int,
+) -> list[ParsedBlock]:
     try:
         reader = PdfReader(BytesIO(upload.data), strict=False)
     except PdfReadError as exc:
@@ -62,9 +71,16 @@ def _parse_pdf(upload: ValidatedUpload, *, max_pages: int) -> list[ParsedBlock]:
         raise IngestionError(f"{upload.file_name}: vượt giới hạn {max_pages} trang.")
 
     blocks: list[ParsedBlock] = []
+    extracted_chars = 0
     for index, page in enumerate(reader.pages):
         text = _clean_text(page.extract_text() or "")
         if text:
+            extracted_chars += len(text)
+            if extracted_chars > max_extracted_chars:
+                raise IngestionError(
+                    f"{upload.file_name}: văn bản trích xuất vượt giới hạn "
+                    f"{max_extracted_chars:,} ký tự."
+                )
             page_number = index + 1
             blocks.append(
                 ParsedBlock(
@@ -137,9 +153,7 @@ def _parse_pptx(upload: ValidatedUpload, *, max_slides: int) -> list[ParsedBlock
         texts: list[str] = []
         title = _clean_text(slide.shapes.title.text) if slide.shapes.title else ""
         for shape in slide.shapes:
-            if not getattr(shape, "has_text_frame", False):
-                continue
-            text = _clean_text(str(getattr(shape, "text", "")))
+            text = _pptx_shape_text(shape)
             if text and text not in texts:
                 texts.append(text)
         combined = "\n\n".join(texts)
@@ -155,6 +169,21 @@ def _parse_pptx(upload: ValidatedUpload, *, max_slides: int) -> list[ParsedBlock
                 )
             )
     return blocks
+
+
+def _pptx_shape_text(shape: Any) -> str:
+    if getattr(shape, "has_text_frame", False):
+        return _clean_text(str(getattr(shape, "text", "")))
+    if not getattr(shape, "has_table", False):
+        return ""
+
+    rows = []
+    for row in shape.table.rows:
+        cells = [_clean_text(cell.text) for cell in row.cells]
+        line = " | ".join(cell for cell in cells if cell)
+        if line:
+            rows.append(line)
+    return "\n".join(rows)
 
 
 def _clean_text(value: Any) -> str:

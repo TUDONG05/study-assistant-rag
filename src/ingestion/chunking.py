@@ -73,6 +73,9 @@ def _chunk_text(text: str, *, max_chars: int, overlap_chars: int) -> list[str]:
             result.append(" ".join(current))
             current = _overlap_units(current, overlap_chars)
             current_length = len(" ".join(current))
+            while current and current_length + len(unit) + 1 > max_chars:
+                current.pop(0)
+                current_length = len(" ".join(current))
         current.append(unit)
         current_length += len(unit) + (1 if len(current) > 1 else 0)
     if current:

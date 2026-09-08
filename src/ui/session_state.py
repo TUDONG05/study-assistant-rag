@@ -8,7 +8,10 @@ from uuid import uuid4
 
 import streamlit as st
 
+from src.config import StorageMode
+
 WORKSPACE_ID = "workspace_id"
+LOCAL_WORKSPACE_ID = "local-default"
 MESSAGES = "messages"
 SELECTED_DOCUMENT_IDS = "selected_document_ids"
 RETRIEVAL_STRATEGY = "retrieval_strategy"
@@ -57,6 +60,17 @@ def reset_session_state(state: MutableMapping[str, Any] | None = None) -> None:
     for key in SESSION_KEYS:
         target.pop(key, None)
     initialize_session_state(target)
+
+
+def configure_workspace(
+    storage_mode: StorageMode,
+    state: MutableMapping[str, Any] | None = None,
+) -> None:
+    """Use a stable namespace for persistent single-user local storage."""
+
+    target = state if state is not None else _session()
+    if storage_mode is StorageMode.LOCAL:
+        target[WORKSPACE_ID] = LOCAL_WORKSPACE_ID
 
 
 def active_gemini_api_key() -> str | None:

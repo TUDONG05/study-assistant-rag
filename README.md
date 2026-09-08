@@ -50,9 +50,9 @@ Configuration precedence is:
 
 Supported storage modes:
 
-- `local`: persistent Qdrant data under `.data/qdrant`
+- `local`: persistent Qdrant data under `.data/qdrant` for a single-user deployment
 - `demo`: in-memory data isolated by browser session
-- `cloud`: Qdrant URL and API key; every operation is filtered by workspace
+- `cloud`: Qdrant URL and API key; data is session-isolated until persistent identity is added
 
 Important ingestion controls include `MAX_UPLOAD_MB`, `MAX_DOCUMENT_PAGES`, `CHUNK_SIZE_CHARS`,
 `CHUNK_OVERLAP_CHARS`, `EMBEDDING_BATCH_SIZE`, and `MAX_LLM_CONTEXT_CHUNKS`.

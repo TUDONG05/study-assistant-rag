@@ -7,7 +7,6 @@ import streamlit as st
 from src.clients import get_gemini_client, get_qdrant_client
 from src.config import AppSettings
 from src.ingestion.contextualizer import (
-    CONTEXT_VERSION,
     DeterministicContextualizer,
     GeminiContextualizer,
 )
@@ -15,6 +14,7 @@ from src.ingestion.embeddings import GeminiEmbeddingProvider
 from src.ingestion.indexer import DocumentIndexer, delete_document
 from src.ingestion.models import UploadPayload
 from src.ingestion.validation import IngestionError
+from src.ingestion.versioning import make_pipeline_version
 from src.storage import DocumentStore, QdrantCollections, VectorStore, ensure_collections
 from src.ui.session_state import active_gemini_api_key, current_workspace_id
 
@@ -67,15 +67,29 @@ def render(settings: AppSettings) -> None:
 
     if index_clicked and api_key:
         gemini_client = get_gemini_client(api_key, settings.request_timeout_ms)
+        pipeline_version = make_pipeline_version(
+            context_mode="gemini" if enrich_context else "deterministic",
+            context_model=settings.chat_model if enrich_context else None,
+            embedding_model=settings.embedding_model,
+            embedding_dimension=settings.embedding_dimension,
+            chunk_size_chars=settings.chunk_size_chars,
+            chunk_overlap_chars=settings.chunk_overlap_chars,
+            context_prefix_chars=settings.context_prefix_chars,
+            max_enriched_chunks=settings.max_llm_context_chunks if enrich_context else 0,
+        )
         contextualizer = (
             GeminiContextualizer(
                 gemini_client,
                 model=settings.chat_model,
                 max_prefix_chars=settings.context_prefix_chars,
                 max_enriched_chunks=settings.max_llm_context_chunks,
+                context_version=pipeline_version,
             )
             if enrich_context
-            else DeterministicContextualizer(max_prefix_chars=settings.context_prefix_chars)
+            else DeterministicContextualizer(
+                max_prefix_chars=settings.context_prefix_chars,
+                context_version=pipeline_version,
+            )
         )
         indexer = DocumentIndexer(
             client=client,
@@ -98,7 +112,7 @@ def render(settings: AppSettings) -> None:
             max_extracted_chars=settings.max_extracted_chars,
             chunk_size_chars=settings.chunk_size_chars,
             chunk_overlap_chars=settings.chunk_overlap_chars,
-            context_version=CONTEXT_VERSION,
+            context_version=pipeline_version,
         )
         for uploaded_file in uploaded_files:
             _index_one(indexer, uploaded_file, workspace_id)

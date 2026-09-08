@@ -19,7 +19,9 @@ def ensure_collections(
     *,
     embedding_dimension: int,
 ) -> None:
-    if not client.collection_exists(collections.chunks):
+    if client.collection_exists(collections.chunks):
+        _validate_vector_size(client, collections.chunks, embedding_dimension)
+    else:
         client.create_collection(
             collection_name=collections.chunks,
             vectors_config=models.VectorParams(
@@ -32,7 +34,9 @@ def ensure_collections(
             collections.chunks,
             ("workspace_id", "document_id", "version_id", "content_hash"),
         )
-    if not client.collection_exists(collections.documents):
+    if client.collection_exists(collections.documents):
+        _validate_vector_size(client, collections.documents, 1)
+    else:
         client.create_collection(
             collection_name=collections.documents,
             vectors_config=models.VectorParams(size=1, distance=models.Distance.COSINE),
@@ -41,6 +45,18 @@ def ensure_collections(
             client,
             collections.documents,
             ("workspace_id", "document_id", "normalized_name", "content_hash", "status"),
+        )
+
+
+def _validate_vector_size(client: QdrantClient, collection_name: str, expected: int) -> None:
+    vectors = client.get_collection(collection_name).config.params.vectors
+    actual = getattr(vectors, "size", None)
+    distance = getattr(vectors, "distance", None)
+    if actual != expected or distance is not models.Distance.COSINE:
+        raise ValueError(
+            f"Qdrant collection {collection_name!r} dùng vector dimension/distance "
+            f"{actual}/{distance}; cấu hình hiện tại yêu cầu {expected}/Cosine. "
+            "Đổi tên collection hoặc lập chỉ mục lại."
         )
 
 

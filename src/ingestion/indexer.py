@@ -161,7 +161,7 @@ class DocumentIndexer:
                         old_record.version_id,
                     )
                 except Exception:
-                    progress("Phiên bản mới đã hoạt động; cleanup cũ sẽ thử lại sau.", 0.98)
+                    progress("Phiên bản mới đã hoạt động nhưng chưa dọn được dữ liệu cũ.", 0.98)
             progress("Hoàn tất lập chỉ mục.", 1.0)
             return IndexResult(document=record, deduplicated=False)
         except Exception:
