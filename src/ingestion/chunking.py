@@ -6,6 +6,8 @@ import re
 
 from src.ingestion.models import (
     ChunkDraft,
+    DocumentKind,
+    ParsedBlock,
     ParsedDocument,
     ValidatedUpload,
     make_chunk_id,
@@ -13,6 +15,7 @@ from src.ingestion.models import (
 )
 
 _SENTENCE_BOUNDARY = re.compile(r"(?<=[.!?…])\s+|\n{2,}")
+_DOCX_PARAGRAPH_SOURCE = re.compile(r"^Đoạn (?P<number>\d+)$")
 
 
 def chunk_document(
@@ -30,8 +33,13 @@ def chunk_document(
 
     chunks: list[ChunkDraft] = []
     chunk_index = 0
-    for block in parsed.blocks:
-        # Không gộp các block nguồn để trích dẫn luôn trỏ đúng trang, slide hoặc mục.
+    blocks = (
+        _merge_short_docx_paragraphs(parsed.blocks, max_chars)
+        if parsed.kind is DocumentKind.DOCX
+        else parsed.blocks
+    )
+    for block in blocks:
+        # PDF, slide và bảng vẫn giữ nguyên ranh giới nguồn để trích dẫn chính xác.
         for text in _chunk_text(block.text, max_chars=max_chars, overlap_chars=overlap_chars):
             chunk_id = make_chunk_id(version_id, block.source, chunk_index, text)
             chunks.append(
@@ -55,6 +63,57 @@ def chunk_document(
             )
             chunk_index += 1
     return chunks
+
+
+def _merge_short_docx_paragraphs(
+    blocks: tuple[ParsedBlock, ...], max_chars: int
+) -> list[ParsedBlock]:
+    """Gom các đoạn DOCX liền nhau trong cùng mục thành một nguồn trích dẫn."""
+
+    merged: list[ParsedBlock] = []
+    current: list[ParsedBlock] = []
+    current_length = 0
+
+    def flush() -> None:
+        nonlocal current, current_length
+        if not current:
+            return
+        first = current[0]
+        last = current[-1]
+        source = first.source
+        if len(current) > 1:
+            last_number = _DOCX_PARAGRAPH_SOURCE.fullmatch(last.source)
+            if last_number:
+                source = f"{first.source}–{last_number.group('number')}"
+        merged.append(
+            ParsedBlock(
+                block_index=first.block_index,
+                text="\n\n".join(block.text for block in current),
+                source=source,
+                section=first.section,
+            )
+        )
+        current = []
+        current_length = 0
+
+    for block in blocks:
+        is_paragraph = _DOCX_PARAGRAPH_SOURCE.fullmatch(block.source) is not None
+        if not is_paragraph:
+            # Bảng hoặc loại block khác luôn ngắt nhóm paragraph đang gom.
+            flush()
+            merged.append(block)
+            continue
+
+        added = len(block.text) + (2 if current else 0)
+        changed_section = bool(current and block.section != current[0].section)
+        if current and (changed_section or current_length + added > max_chars):
+            flush()
+            added = len(block.text)
+        current.append(block)
+        current_length += added
+
+    flush()
+    return merged
 
 
 def _chunk_text(text: str, *, max_chars: int, overlap_chars: int) -> list[str]:
