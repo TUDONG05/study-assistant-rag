@@ -3,6 +3,9 @@ plans/
 .codex/
 .agents/
 
+# Local learning notes and generated documentation
+docs/
+
 # Environment and secrets
 .env
 .env.*

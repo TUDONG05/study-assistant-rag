@@ -35,6 +35,7 @@ def validate_upload(
     max_zip_entries: int,
     max_zip_uncompressed_bytes: int,
 ) -> ValidatedUpload:
+
     file_name = Path(upload.file_name).name.strip()
     if not file_name:
         raise IngestionError("Tệp không có tên hợp lệ.")
@@ -57,10 +58,12 @@ def validate_upload(
         raise IngestionError(f"{file_name}: MIME type không khớp phần mở rộng.")
 
     if kind is DocumentKind.PDF:
+        # Phần mở rộng và MIME không đáng tin hoàn toàn; kiểm tra cả chữ ký PDF.
         marker_index = upload.data[:1024].find(b"%PDF-")
         if marker_index < 0:
             raise IngestionError(f"{file_name}: nội dung không phải PDF hợp lệ.")
     else:
+        # DOCX/PPTX là ZIP archive, cần chống archive bomb và path traversal.
         _validate_openxml(
             file_name,
             upload.data,
@@ -100,6 +103,7 @@ def _validate_openxml(
                 if info.flag_bits & 0x1:
                     raise IngestionError(f"{file_name}: không hỗ trợ archive được mã hóa.")
                 path = PurePosixPath(info.filename)
+                # Archive OpenXML không được phép thoát ra ngoài thư mục giải nén.
                 if path.is_absolute() or ".." in path.parts:
                     raise IngestionError(f"{file_name}: archive chứa đường dẫn không an toàn.")
                 total_size += info.file_size
@@ -110,5 +114,6 @@ def _validate_openxml(
         raise IngestionError(f"{file_name}: tệp Office bị hỏng hoặc sai định dạng.") from exc
 
     required = "word/document.xml" if kind is DocumentKind.DOCX else "ppt/presentation.xml"
+    # ZIP thông thường không phải tệp Office nếu thiếu các thành phần OpenXML bắt buộc.
     if "[Content_Types].xml" not in names or required not in names:
         raise IngestionError(f"{file_name}: nội dung không khớp định dạng {kind.value.upper()}.")

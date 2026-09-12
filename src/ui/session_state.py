@@ -33,7 +33,7 @@ _DEFAULT_FACTORIES: dict[str, Callable[[], Any]] = {
     WORKSPACE_ID: lambda: uuid4().hex,
     MESSAGES: list,
     SELECTED_DOCUMENT_IDS: list,
-    RETRIEVAL_STRATEGY: lambda: "advanced",
+    RETRIEVAL_STRATEGY: lambda: "dense",
     REQUEST_COUNT: lambda: 0,
     GEMINI_API_KEY: str,
     ACTIVE_VIEW: lambda: "Tài liệu",

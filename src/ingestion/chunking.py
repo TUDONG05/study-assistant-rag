@@ -31,6 +31,7 @@ def chunk_document(
     chunks: list[ChunkDraft] = []
     chunk_index = 0
     for block in parsed.blocks:
+        # Không gộp các block nguồn để trích dẫn luôn trỏ đúng trang, slide hoặc mục.
         for text in _chunk_text(block.text, max_chars=max_chars, overlap_chars=overlap_chars):
             chunk_id = make_chunk_id(version_id, block.source, chunk_index, text)
             chunks.append(
@@ -64,15 +65,21 @@ def _chunk_text(text: str, *, max_chars: int, overlap_chars: int) -> list[str]:
             continue
         units.extend(_split_oversized(sentence, max_chars))
 
+    # Ưu tiên chunk theo câu hoàn chỉnh; câu quá dài đã được tách ở trên.
     result: list[str] = []
     current: list[str] = []
     current_length = 0
     for unit in units:
+        # Chỉ cần một khoảng trắng khi chunk hiện tại đã có nội dung.
         added = len(unit) + (1 if current else 0)
         if current and current_length + added > max_chars:
             result.append(" ".join(current))
+
+            # Mang phần cuối sang chunk mới để giữ ngữ cảnh ở ranh giới khi truy xuất.
             current = _overlap_units(current, overlap_chars)
             current_length = len(" ".join(current))
+
+            # Bỏ dần phần overlap cũ nhất đến khi còn đủ chỗ cho unit mới.
             while current and current_length + len(unit) + 1 > max_chars:
                 current.pop(0)
                 current_length = len(" ".join(current))
@@ -94,6 +101,7 @@ def _split_oversized(text: str, max_chars: int) -> list[str]:
     length = 0
     for word in words:
         if len(word) > max_chars:
+            # Một từ dài hơn cả giới hạn  .
             if current:
                 parts.append(" ".join(current))
                 current = []
@@ -121,6 +129,7 @@ def _overlap_units(units: list[str], overlap_chars: int) -> list[str]:
     overlap: list[str] = []
     length = 0
     for unit in reversed(units):
+        # Duyệt ngược để giữ phần cuối, thay vì phần đầu, của chunk vừa hoàn tất.
         added = len(unit) + (1 if overlap else 0)
         if overlap and length + added > overlap_chars:
             break

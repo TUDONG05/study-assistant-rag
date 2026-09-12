@@ -25,6 +25,7 @@ class DeterministicContextualizer:
     def contextualize(self, chunks: Sequence[ChunkDraft]) -> list[ContextualChunk]:
         result: list[ContextualChunk] = []
         for index, chunk in enumerate(chunks):
+            # Chunk kề nhau chỉ hữu ích nếu cùng một nguồn trích dẫn.
             previous = chunks[index - 1] if index > 0 else None
             following = chunks[index + 1] if index + 1 < len(chunks) else None
             prefix = self._prefix(chunk, previous, following)
@@ -82,6 +83,7 @@ class GeminiContextualizer(DeterministicContextualizer):
         deterministic = super().contextualize(chunks)
         result: list[ContextualChunk] = []
         for index, base in enumerate(deterministic):
+            # Giới hạn số lần gọi model để tệp lớn vẫn có chi phí và độ trễ hữu hạn.
             if index >= self.max_enriched_chunks:
                 result.append(base)
                 continue
@@ -89,6 +91,7 @@ class GeminiContextualizer(DeterministicContextualizer):
                 prefix = self._generate_prefix(base)
                 result.append(self._build(base.draft, prefix, ContextSource.GEMINI))
             except Exception:
+                # Lập chỉ mục vẫn phải hoạt động khi bước bổ sung ngữ cảnh tùy chọn bị lỗi.
                 result.append(self._build(base.draft, base.context_prefix, ContextSource.FALLBACK))
         return result
 
@@ -99,6 +102,7 @@ class GeminiContextualizer(DeterministicContextualizer):
             f"Metadata: {base.context_prefix}\n"
             f"Chunk: {base.draft.original_text[:1800]}"
         )
+        # Ép đầu ra JSON để có thể kiểm tra phản hồi model không hợp lệ một cách nhất quán.
         response = self.client.models.generate_content(
             model=self.model,
             contents=prompt,

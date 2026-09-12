@@ -69,3 +69,45 @@ class VectorStore:
             ),
             wait=True,
         )
+
+    def query(
+        self,
+        vector: Sequence[float],
+        *,
+        workspace_id: str,
+        version_ids: Sequence[str],
+        document_ids: Sequence[str] | None,
+        limit: int,
+        score_threshold: float,
+    ) -> list[models.ScoredPoint]:
+        """Search only committed versions from the current workspace."""
+
+        if not version_ids:
+            return []
+        conditions: list[models.Condition] = [
+            models.FieldCondition(
+                key="workspace_id",
+                match=models.MatchValue(value=workspace_id),
+            ),
+            models.FieldCondition(
+                key="version_id",
+                match=models.MatchAny(any=list(version_ids)),
+            ),
+        ]
+        if document_ids:
+            conditions.append(
+                models.FieldCondition(
+                    key="document_id",
+                    match=models.MatchAny(any=list(document_ids)),
+                )
+            )
+        response = self.client.query_points(
+            collection_name=self.collection_name,
+            query=list(vector),
+            query_filter=models.Filter(must=conditions),
+            limit=limit,
+            score_threshold=score_threshold,
+            with_payload=True,
+            with_vectors=False,
+        )
+        return list(response.points)

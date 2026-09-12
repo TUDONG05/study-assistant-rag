@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from src.ingestion.versioning import make_pipeline_version
+from src.ingestion.versioning import (
+    PIPELINE_VERSION,
+    is_current_pipeline_version,
+    make_pipeline_version,
+)
 
 
 def _version(
@@ -28,6 +32,7 @@ def _version(
 
 def test_pipeline_version_is_stable_for_same_settings() -> None:
     assert _version() == _version()
+    assert _version().startswith(f"{PIPELINE_VERSION}-")
 
 
 def test_pipeline_version_changes_with_indexed_representation() -> None:
@@ -43,3 +48,9 @@ def test_pipeline_version_changes_with_indexed_representation() -> None:
     ]
 
     assert all(variant != _version() for variant in variants)
+
+
+def test_only_current_pipeline_fingerprints_are_compatible() -> None:
+    assert is_current_pipeline_version(_version())
+    assert not is_current_pipeline_version("ingestion-v1-deadbeef")
+    assert not is_current_pipeline_version("ingestion-v20-deadbeef")
