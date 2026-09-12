@@ -27,41 +27,15 @@ Study Assistant hiện cung cấp một **dense grounded RAG baseline** hoàn ch
 
 ## Kiến trúc tổng thể
 
-```text
-                         INGESTION
+<p align="center">
+  <img
+    src="./rag-flow.png"
+    alt="Luồng RAG end-to-end gồm ingestion tài liệu, truy xuất và trả lời có kiểm chứng trích dẫn"
+    width="100%"
+  >
+</p>
 
- PDF / DOCX / PPTX
-         │
-         ▼
- Validate ──► Parse ──► Chunk ──► Contextualize
-                                         │
-                                         ▼
-                              Gemini document embedding
-                                         │
-                                         ▼
-                   Qdrant: chunk vectors + active document registry
-
-
-                         RETRIEVAL & CHAT
-
- Câu hỏi ──► Gemini query embedding
-                         │
-                         ▼
-       Workspace/version/document-scoped cosine search
-                         │
-                         ▼
-              RetrievedChunk: S1, S2, ...
-                         │
-                         ▼
-             Gemini structured grounded answer
-                         │
-                         ▼
-              Server-side citation validation
-                         │
-              ┌──────────┴──────────┐
-              ▼                     ▼
-     Answer + citations      Deterministic refusal
-```
+<p align="center"><em>Luồng xử lý từ tài liệu đầu vào đến câu trả lời có trích dẫn.</em></p>
 
 ### Nguyên tắc dữ liệu
 
