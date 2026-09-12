@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 
-PIPELINE_VERSION = "ingestion-v3"
+PIPELINE_VERSION = "ingestion-v2"
 
 
 def is_current_pipeline_version(value: str) -> bool:
