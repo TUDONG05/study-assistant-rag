@@ -4,7 +4,6 @@ from typing import Any
 
 from src.chat import Citation, GroundedAnswer
 from src.ingestion.models import DocumentRecord
-from src.ingestion.versioning import PIPELINE_VERSION
 from src.retrieval import RetrievalTrace
 from src.ui.chat_view import (
     _disabled_reason,
@@ -33,7 +32,7 @@ def _record(document_id: str, context_version: str) -> DocumentRecord:
 
 
 def test_document_scope_excludes_old_pipeline_and_stale_selection() -> None:
-    current = _record("current", f"{PIPELINE_VERSION}-abc")
+    current = _record("current", "ingestion-v2-abc")
     old = _record("old", "ingestion-v1-abc")
 
     compatible = compatible_records([current, old])
@@ -44,7 +43,7 @@ def test_document_scope_excludes_old_pipeline_and_stale_selection() -> None:
 
 
 def test_disabled_reason_prioritizes_key_documents_then_quota() -> None:
-    current = _record("current", f"{PIPELINE_VERSION}-abc")
+    current = _record("current", "ingestion-v2-abc")
 
     missing_key = _disabled_reason(
         api_key=None, compatible_records=[], request_count=0, request_limit=40
