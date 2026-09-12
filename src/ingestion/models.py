@@ -86,6 +86,7 @@ class ContextualChunk:
     context_version: str
 
     def payload(self) -> dict[str, Any]:
+        # Trải phẳng draft vì vector store lưu một payload cho mỗi point.
         payload = asdict(self.draft)
         payload.update(
             context_prefix=self.context_prefix,
@@ -144,6 +145,7 @@ class DocumentRecord:
 
     @classmethod
     def from_payload(cls, payload: dict[str, Any]) -> DocumentRecord:
+        # Chỉ lấy field đã biết để payload storage có thể chứa metadata ngoài lề an toàn.
         fields = {key: payload[key] for key in cls.__dataclass_fields__}
         return cls(**fields)
 
@@ -163,10 +165,12 @@ def sha256_text(value: str) -> str:
 
 
 def make_document_id(workspace_id: str, normalized_name: str) -> str:
+    # ID ổn định theo workspace và tên tệp, giúp bản upload mới thay bản cũ.
     return str(uuid5(NAMESPACE_URL, f"study-assistant:{workspace_id}:{normalized_name}"))
 
 
 def make_version_id(document_id: str, content_hash: str, context_version: str) -> str:
+    # Đổi nội dung hoặc pipeline sẽ tạo một phiên bản vector riêng, có thể tái lập.
     return str(uuid5(NAMESPACE_URL, f"{document_id}:{content_hash}:{context_version}"))
 
 
@@ -176,6 +180,7 @@ def make_chunk_id(
     chunk_index: int,
     original_text: str,
 ) -> str:
+    # Thêm fingerprint nội dung để hai vị trí giống nhau nhưng khác text không trùng ID.
     fingerprint = sha256_text(original_text)
     return str(uuid5(NAMESPACE_URL, f"{version_id}:{source}:{chunk_index}:{fingerprint}"))
 

@@ -38,13 +38,26 @@ class GeminiEmbeddingProvider:
     def embed_documents(self, texts: Sequence[str], *, title: str) -> list[list[float]]:
         vectors: list[list[float]] = []
         for start in range(0, len(texts), self.batch_size):
+            # Gửi theo batch để tuân thủ giới hạn provider và vẫn giữ đúng thứ tự chunk.
             batch = texts[start : start + self.batch_size]
-            vectors.extend(self._embed_batch(batch, title=title))
+            formatted = [f"title: {title} | text: {text}" for text in batch]
+            vectors.extend(self._embed_batch(formatted))
         if len(vectors) != len(texts):
             raise EmbeddingError("Số embedding trả về không khớp số chunk.")
         return vectors
 
-    def _embed_batch(self, texts: Sequence[str], *, title: str) -> list[list[float]]:
+    def embed_query(self, question: str) -> list[float]:
+        """Embed one question using the Gemini Embedding 2 QA retrieval format."""
+
+        normalized = question.strip()
+        if not normalized:
+            raise EmbeddingError("Câu hỏi không được để trống.")
+        vectors = self._embed_batch([f"task: question answering | query: {normalized}"])
+        if len(vectors) != 1:
+            raise EmbeddingError("Gemini trả về số embedding câu hỏi không hợp lệ.")
+        return vectors[0]
+
+    def _embed_batch(self, texts: Sequence[str]) -> list[list[float]]:
         contents = [types.Content(parts=[types.Part(text=text)]) for text in texts]
         last_error: Exception | None = None
         for attempt in range(self.max_retries + 1):
@@ -53,8 +66,6 @@ class GeminiEmbeddingProvider:
                     model=self.model,
                     contents=contents,
                     config=types.EmbedContentConfig(
-                        task_type="RETRIEVAL_DOCUMENT",
-                        title=title,
                         output_dimensionality=self.dimension,
                     ),
                 )
@@ -71,5 +82,6 @@ class GeminiEmbeddingProvider:
                 last_error = exc
                 if attempt >= self.max_retries:
                     break
+                # Tăng dần thời gian chờ khi gặp lỗi tạm thời từ mạng hoặc provider.
                 self.sleep(float(2**attempt))
         raise EmbeddingError("Không thể tạo embedding sau nhiều lần thử.") from last_error

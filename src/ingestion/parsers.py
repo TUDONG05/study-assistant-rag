@@ -40,6 +40,7 @@ def parse_document(
         raise IngestionError(f"{upload.file_name}: không thể đọc nội dung tài liệu.") from exc
 
     extracted_chars = sum(len(block.text) for block in blocks)
+    # Loại tài liệu chỉ có ảnh hoặc gần như rỗng trước khi tạo embedding vô nghĩa.
     if extracted_chars < 20:
         detail = " PDF có thể là bản scan cần OCR." if upload.kind is DocumentKind.PDF else ""
         raise IngestionError(f"{upload.file_name}: không tìm thấy đủ văn bản.{detail}")
@@ -76,6 +77,7 @@ def _parse_pdf(
         text = _clean_text(page.extract_text() or "")
         if text:
             extracted_chars += len(text)
+            # Dừng sớm thay vì trích xuất hết tài liệu đã vượt giới hạn cấu hình.
             if extracted_chars > max_extracted_chars:
                 raise IngestionError(
                     f"{upload.file_name}: văn bản trích xuất vượt giới hạn "
@@ -108,6 +110,7 @@ def _parse_docx(upload: ValidatedUpload) -> list[ParsedBlock]:
                 continue
             style_name = str(getattr(item.style, "name", ""))
             if style_name.casefold().startswith("heading"):
+                # Heading là metadata cho các block sau, không phải nội dung để truy xuất riêng.
                 section = text
                 continue
             paragraph_index += 1
@@ -154,6 +157,7 @@ def _parse_pptx(upload: ValidatedUpload, *, max_slides: int) -> list[ParsedBlock
         title = _clean_text(slide.shapes.title.text) if slide.shapes.title else ""
         for shape in slide.shapes:
             text = _pptx_shape_text(shape)
+            # Tiêu đề có thể xuất hiện vừa là title slide, vừa là một shape thông thường.
             if text and text not in texts:
                 texts.append(text)
         combined = "\n\n".join(texts)
@@ -187,6 +191,7 @@ def _pptx_shape_text(shape: Any) -> str:
 
 
 def _clean_text(value: Any) -> str:
+    # Chuẩn hóa khoảng trắng trước khi kiểm tra kích thước, hash và tạo embedding.
     text = str(value).replace("\x00", " ").replace("\r\n", "\n").replace("\r", "\n")
     lines = [re.sub(r"[\t ]+", " ", line).strip() for line in text.splitlines()]
     return "\n".join(line for line in lines if line).strip()

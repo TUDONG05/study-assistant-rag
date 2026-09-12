@@ -88,12 +88,14 @@ class DocumentIndexer:
             self.context_version,
         )
         if duplicate:
+            # Cùng nội dung và cùng phiên bản pipeline thì có thể dùng lại kết quả cũ.
             progress("Tài liệu đã được lập chỉ mục.", 1.0)
             return IndexResult(document=duplicate, deduplicated=True)
 
         document_id = make_document_id(workspace_id, upload.normalized_name)
         version_id = make_version_id(document_id, upload.content_hash, self.context_version)
         old_record = self.document_store.find_by_name(workspace_id, upload.normalized_name)
+        # Qdrant và document registry không có transaction chung, nên phải theo dõi trạng thái.
         staging_started = False
         committed = False
 
@@ -131,6 +133,7 @@ class DocumentIndexer:
             progress("Đang ghi vùng staging…", 0.75)
             staging_started = True
             self.vector_store.stage(chunks, vectors)
+            # Xác minh vùng staging trước khi công khai phiên bản mới trong document registry.
             stored_count = self.vector_store.count_version(
                 workspace_id,
                 document_id,
@@ -155,6 +158,8 @@ class DocumentIndexer:
             committed = True
             if old_record and old_record.version_id != version_id:
                 try:
+                    # Dọn phiên bản cũ chỉ là best-effort: phiên bản mới vẫn phải hoạt động
+                    # nếu việc xóa vector cũ thất bại.
                     self.vector_store.delete_version(
                         workspace_id,
                         old_record.document_id,
@@ -166,6 +171,7 @@ class DocumentIndexer:
             return IndexResult(document=record, deduplicated=False)
         except Exception:
             if staging_started and not committed:
+                # Chỉ rollback phiên bản staging chưa commit; không xóa vector đang hoạt động.
                 with contextlib.suppress(Exception):
                     self.vector_store.delete_version(workspace_id, document_id, version_id)
             raise
@@ -178,6 +184,6 @@ def delete_document(
     document_store: DocumentStore,
     vector_store: VectorStore,
 ) -> None:
-    # Keep the registry record active when vector cleanup fails so deletion can be retried safely.
+    # Xóa vector trước; giữ record nếu lỗi để lần sau vẫn có thể thử xóa lại.
     vector_store.delete_document(workspace_id, document_id)
     document_store.delete(workspace_id, document_id)

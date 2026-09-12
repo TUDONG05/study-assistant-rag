@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 
@@ -13,14 +14,16 @@ class _EmbeddingModels:
         self.dimension = dimension
         self.failures = failures
         self.calls = 0
+        self.requests: list[dict[str, object]] = []
 
     def embed_content(
         self,
         *,
         contents: Sequence[object],
-        **_kwargs: object,
+        **kwargs: object,
     ) -> SimpleNamespace:
         self.calls += 1
+        self.requests.append({"contents": contents, **kwargs})
         if self.calls <= self.failures:
             raise RuntimeError("temporary failure")
         embeddings = [SimpleNamespace(values=[0.1] * self.dimension) for _ in contents]
@@ -53,6 +56,31 @@ def test_embeddings_are_batched_and_order_count_is_preserved() -> None:
     assert models.calls == 3
     assert len(vectors) == 5
     assert all(len(vector) == 3 for vector in vectors)
+    first_content = models.requests[0]["contents"][0]  # type: ignore[index]
+    assert first_content.parts[0].text == "title: Lesson | text: a"
+    config: Any = models.requests[0]["config"]
+    assert config.output_dimensionality == 3
+    assert config.task_type is None
+    assert config.title is None
+
+
+def test_query_uses_question_answering_format() -> None:
+    models = _EmbeddingModels(dimension=3)
+
+    vector = _provider(models).embed_query("  Khái niệm RAG là gì?  ")
+
+    assert len(vector) == 3
+    content = models.requests[0]["contents"][0]  # type: ignore[index]
+    assert content.parts[0].text == ("task: question answering | query: Khái niệm RAG là gì?")
+
+
+def test_blank_query_is_rejected_without_api_call() -> None:
+    models = _EmbeddingModels(dimension=3)
+
+    with pytest.raises(EmbeddingError, match="không được để trống"):
+        _provider(models).embed_query("   ")
+
+    assert models.calls == 0
 
 
 def test_transient_embedding_failure_retries_with_backoff() -> None:
