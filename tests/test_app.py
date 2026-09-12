@@ -26,3 +26,13 @@ def test_navigation_renders_each_workspace() -> None:
         app.radio[0].set_value(view).run(timeout=20)
         assert not app.exception
         assert app.subheader[0].value == heading
+
+
+def test_chat_is_dense_and_disabled_without_api_key() -> None:
+    app = AppTest.from_file(APP_PATH).run(timeout=20)
+
+    app.radio[0].set_value("Chat").run(timeout=20)
+
+    assert not app.exception
+    assert any("Dense baseline" in caption.value for caption in app.caption)
+    assert app.chat_input[0].disabled

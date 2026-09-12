@@ -8,11 +8,14 @@ CONFIG_ENVIRONMENT_VARIABLES = (
     "CHAT_MODEL",
     "EMBEDDING_DIMENSION",
     "EMBEDDING_MODEL",
+    "MAX_QUESTION_CHARS",
     "MAX_REQUESTS_PER_SESSION",
     "MAX_UPLOAD_MB",
     "QDRANT_API_KEY",
     "QDRANT_PATH",
     "QDRANT_URL",
+    "RETRIEVAL_SCORE_THRESHOLD",
+    "RETRIEVAL_TOP_K",
     "REQUEST_TIMEOUT_MS",
     "STORAGE_MODE",
 )
@@ -31,6 +34,9 @@ def test_load_settings_uses_safe_defaults() -> None:
     assert settings.chat_model == "gemini-3.7-flash"
     assert settings.embedding_model == "gemini-embedding-2"
     assert settings.embedding_dimension == 768
+    assert settings.max_question_chars == 4_000
+    assert settings.retrieval_top_k == 6
+    assert settings.retrieval_score_threshold == 0.5
 
 
 def test_environment_takes_precedence_over_streamlit_secrets(
@@ -53,6 +59,19 @@ def test_invalid_integer_has_actionable_error(monkeypatch: pytest.MonkeyPatch) -
 
     with pytest.raises(ConfigurationError, match="MAX_UPLOAD_MB"):
         load_settings({})
+
+
+def test_retrieval_settings_are_loaded_and_validated(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("RETRIEVAL_TOP_K", "8")
+    monkeypatch.setenv("RETRIEVAL_SCORE_THRESHOLD", "0.42")
+
+    settings = load_settings({})
+
+    assert settings.retrieval_top_k == 8
+    assert settings.retrieval_score_threshold == 0.42
+
+    with pytest.raises(ConfigurationError, match="RETRIEVAL_SCORE_THRESHOLD"):
+        AppSettings(retrieval_score_threshold=1.1)
 
 
 def test_public_diagnostics_never_contains_credentials() -> None:
