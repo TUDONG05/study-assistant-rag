@@ -53,4 +53,5 @@ def test_pipeline_version_changes_with_indexed_representation() -> None:
 def test_only_current_pipeline_fingerprints_are_compatible() -> None:
     assert is_current_pipeline_version(_version())
     assert not is_current_pipeline_version("ingestion-v1-deadbeef")
+    assert not is_current_pipeline_version("ingestion-v2-deadbeef")
     assert not is_current_pipeline_version("ingestion-v20-deadbeef")
