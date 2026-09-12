@@ -15,6 +15,7 @@ from src.ui.session_state import (
     GEMINI_API_KEY,
     REQUEST_COUNT,
     active_gemini_api_key,
+    configure_workspace,
     current_workspace_id,
     initialize_session_state,
     reset_session_state,
@@ -85,6 +86,7 @@ def main() -> None:
         st.error(f"Cấu hình không hợp lệ: {exc}")
         st.stop()
 
+    configure_workspace(settings.storage_mode)
     selected_view = _render_sidebar(settings)
     st.title("Study Assistant")
     st.caption("Học từ tài liệu của bạn với câu trả lời có căn cứ và trích dẫn kiểm chứng.")
