@@ -126,7 +126,7 @@ Các biến chính:
 
 | Biến | Mặc định | Ý nghĩa |
 | --- | --- | --- |
-| `CHAT_MODEL` | `gemini-3.7-flash` | Model tạo câu trả lời |
+| `CHAT_MODEL` | `gemini-3.5-flash-lite` | Model tạo câu trả lời |
 | `EMBEDDING_MODEL` | `gemini-embedding-2` | Model tạo vector |
 | `EMBEDDING_DIMENSION` | `768` | Số chiều vector |
 | `STORAGE_MODE` | `local` | Chế độ lưu trữ Qdrant |
