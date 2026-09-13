@@ -27,7 +27,7 @@ class AppSettings:
     """Validated settings safe to pass through application boundaries."""
 
     app_name: str = "Study Assistant"
-    chat_model: str = "gemini-3.7-flash"
+    chat_model: str = "gemini-3.5-flash-lite"
     embedding_model: str = "gemini-embedding-2"
     embedding_dimension: int = 768
     storage_mode: StorageMode = StorageMode.LOCAL
@@ -114,7 +114,7 @@ def load_settings(secrets: Mapping[str, Any] | None = None) -> AppSettings:
         raise ConfigurationError(f"STORAGE_MODE phải là một trong: {allowed}.") from exc
 
     return AppSettings(
-        chat_model=str(_read("CHAT_MODEL", source, "gemini-3.7-flash")),
+        chat_model=str(_read("CHAT_MODEL", source, "gemini-3.5-flash-lite")),
         embedding_model=str(_read("EMBEDDING_MODEL", source, "gemini-embedding-2")),
         embedding_dimension=_read_int("EMBEDDING_DIMENSION", source, 768),
         storage_mode=storage_mode,
