@@ -31,7 +31,7 @@ def test_load_settings_uses_safe_defaults() -> None:
     settings = load_settings({})
 
     assert settings.storage_mode is StorageMode.LOCAL
-    assert settings.chat_model == "gemini-3.7-flash"
+    assert settings.chat_model == "gemini-3.5-flash-lite"
     assert settings.embedding_model == "gemini-embedding-2"
     assert settings.embedding_dimension == 768
     assert settings.max_question_chars == 4_000
