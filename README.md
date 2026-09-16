@@ -2,6 +2,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.11%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.11+">
+  <a href="https://github.com/TUDONG05/study-assistant-rag/actions/workflows/ci.yml"><img src="https://github.com/TUDONG05/study-assistant-rag/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
   <img src="https://img.shields.io/badge/Streamlit-1.63-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white" alt="Streamlit 1.63">
   <img src="https://img.shields.io/badge/Google_Gemini-GenAI-8E75B2?style=for-the-badge&logo=googlegemini&logoColor=white" alt="Google Gemini">
   <img src="https://img.shields.io/badge/Qdrant-1.19-DC244C?style=for-the-badge&logo=qdrant&logoColor=white" alt="Qdrant 1.19">
@@ -95,6 +96,22 @@ uv run streamlit run app.py
 Gemini sử dụng mô hình BYOK: nhập API key trong sidebar sau khi ứng dụng khởi động. Key chỉ tồn tại trong Streamlit session hiện tại, không được lưu vào vector database hoặc ghi vào log.
 
 ## Cách sử dụng
+
+## CI/CD
+
+GitHub Actions chạy lint (Ruff), type-check (mypy) và test (pytest) trên mọi pull request và
+mọi lần push. Workflow luôn tạo môi trường Python 3.11 riêng từ `requirements-dev.txt`; không
+dùng các executable có thể đã được cài toàn cục trên runner.
+
+Workflow `Deploy` chỉ kích hoạt sau khi CI của nhánh `main` thành công, hoặc khi chạy thủ công.
+Để bật deploy hook, cấu hình tại repository GitHub:
+
+1. Thêm **Repository variable** `DEPLOY_ENABLED` với giá trị `true`.
+2. Thêm **Repository secret** `DEPLOY_HOOK_URL` là URL webhook/deploy hook của nền tảng triển khai.
+3. Tạo environment `production` nếu muốn yêu cầu phê duyệt trước khi deploy.
+
+Nếu ứng dụng được kết nối trực tiếp với Streamlit Community Cloud qua GitHub, việc push lên
+nhánh deploy của Streamlit Cloud đã tự kích hoạt deploy; không cần đặt hai cấu hình hook trên.
 
 ### 1. Lập chỉ mục tài liệu
 

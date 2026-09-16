@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Lint, type-check, and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CI_VENV: ${{ runner.temp }}/study-assistant-venv
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            pyproject.toml
+            requirements*.txt
+            uv.lock
+
+      - name: Install dependencies
+        run: |
+          uv venv --python 3.11 "$CI_VENV"
+          uv pip install --python "$CI_VENV/bin/python" -r requirements-dev.txt
+
+      - name: Lint
+        run: >-
+          "$CI_VENV/bin/python" -m ruff check src tests app.py
+
+      - name: Type-check
+        run: >-
+          "$CI_VENV/bin/python" -m mypy src
+
+      - name: Test
+        run: >-
+          "$CI_VENV/bin/python" -m pytest
