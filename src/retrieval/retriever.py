@@ -113,5 +113,6 @@ class DenseRetriever:
             ),
             history_turns=len(request.history),
             candidate_count=len(chunks),
+            effective_queries=(normalized_question,),
         )
         return RetrievalResult(chunks=chunks, trace=trace)

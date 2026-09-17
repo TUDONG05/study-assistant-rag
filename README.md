@@ -25,6 +25,8 @@ Study Assistant hiện cung cấp một **dense grounded RAG baseline** hoàn ch
 - Dense retrieval chỉ tìm trong document version đang active và phạm vi tài liệu người dùng đã chọn.
 - Gemini trả structured JSON; citation `[S1]`, `[S2]` được server đối chiếu với các chunk thực tế.
 - Từ chối có kiểm soát khi không có đủ bằng chứng hoặc response/citation không hợp lệ.
+- Bộ benchmark tiếng Việt có phiên bản, đo retrieval, answerability, citation, fact coverage,
+  query drift, độ trễ và chi phí ước tính trên cùng một hold-out.
 
 ## Kiến trúc tổng thể
 
@@ -95,8 +97,6 @@ uv run streamlit run app.py
 
 Gemini sử dụng mô hình BYOK: nhập API key trong sidebar sau khi ứng dụng khởi động. Key chỉ tồn tại trong Streamlit session hiện tại, không được lưu vào vector database hoặc ghi vào log.
 
-## Cách sử dụng
-
 ## CI/CD
 
 GitHub Actions chạy lint (Ruff), type-check (mypy) và test (pytest) trên mọi pull request và
@@ -112,6 +112,8 @@ Workflow `Deploy` chỉ kích hoạt sau khi CI của nhánh `main` thành công
 
 Nếu ứng dụng được kết nối trực tiếp với Streamlit Community Cloud qua GitHub, việc push lên
 nhánh deploy của Streamlit Cloud đã tự kích hoạt deploy; không cần đặt hai cấu hình hook trên.
+
+## Cách sử dụng
 
 ### 1. Lập chỉ mục tài liệu
 
@@ -130,6 +132,20 @@ Deterministic context được bật mặc định. Gemini context enrichment l�
 4. Kiểm tra citation `[S1]`, `[S2]` và source panel để xem file, vị trí, supporting quote và retrieval score.
 
 Retrieval score là metadata dùng để xếp hạng độ tương đồng, không phải xác suất câu trả lời đúng.
+
+### 3. Chạy dense baseline
+
+Lập chỉ mục `Nhóm3_TTCSN.docx` trong storage local, đóng Streamlit để giải phóng khóa Qdrant,
+đặt API key trong terminal rồi chạy:
+
+```bash
+export GEMINI_API_KEY="..."
+uv run python -m scripts.evaluate_rag --split holdout
+```
+
+CLI chạy 22 ca hold-out và ghi `evaluations/results/latest.json` cùng báo cáo Markdown. Màn hình
+**Đánh giá** tự đọc kết quả gần nhất. Corpus gốc không nằm trong repository; bộ nhãn hiện có 46
+ca và chỉ sử dụng tài liệu đã được chủ dự án cho phép.
 
 ## Cấu hình
 
@@ -177,9 +193,12 @@ study-assistant-rag/
 │   ├── storage/            # Qdrant collections, document registry và vector store
 │   ├── retrieval/          # Dense retriever và trusted retrieval models
 │   ├── chat/               # Grounded generation và citation validation
+│   ├── evaluation/         # Dataset contract, runner, metrics và reporting
 │   ├── ui/                 # Documents, chat, evaluation và study-tool views
 │   ├── clients.py          # Gemini và Qdrant client lifecycle
 │   └── config.py           # Typed configuration và validation
+├── evaluations/            # Versioned labels và benchmark results
+├── scripts/                # Evaluation CLI
 ├── tests/                  # Unit/integration/UI tests
 └── pyproject.toml          # Dependencies và tool configuration
 ```
@@ -194,17 +213,21 @@ study-assistant-rag/
 - Gemini response phải đúng JSON schema; citation marker và source ID được xác thực phía server.
 - Provider error được chuyển thành thông báo an toàn, không đưa raw prompt, API key hoặc response ra UI.
 
-Citation validation hiện xác nhận cấu trúc marker và nguồn được phép sử dụng. Nó không phải là bằng chứng toán học rằng từng mệnh đề trong câu trả lời được source hỗ trợ hoàn toàn; citation accuracy sẽ được đo bằng benchmark riêng trong roadmap.
+Citation validation xác nhận cấu trúc marker và nguồn được phép sử dụng. Benchmark Phase 5 đo
+thêm citation precision, recall, coverage và expected-fact coverage; các chỉ số này vẫn phụ thuộc
+chất lượng nhãn và không phải là bằng chứng toán học cho mọi mệnh đề.
 
 ## Kiểm thử
 
 ```bash
-uv run ruff check src tests app.py
-uv run mypy src
-uv run pytest
+uv run --with-requirements requirements-dev.txt python -m ruff check src tests app.py
+uv run --with-requirements requirements-dev.txt python -m mypy src
+uv run --with-requirements requirements-dev.txt python -m pytest
 ```
 
-Bộ test hiện tại bao phủ cấu hình, client lifecycle, ingestion, Qdrant storage, retrieval scope, grounded chat, citation contract, session state và Streamlit navigation. Lần xác minh gần nhất có **79 test passed**.
+Bộ test hiện tại bao phủ cấu hình, client lifecycle, ingestion, Qdrant storage, retrieval scope,
+grounded chat, citation contract, evaluation metrics/runner, session state và Streamlit navigation.
+Lần xác minh gần nhất có **118 test passed**.
 
 ## Phạm vi hiện tại và roadmap
 
@@ -215,12 +238,13 @@ Bộ test hiện tại bao phủ cấu hình, client lifecycle, ingestion, Qdran
 - Document versioning, deduplication và replacement.
 - Workspace-scoped storage và retrieval.
 - Inline citation cùng deterministic refusal.
+- Evaluation harness offline-deterministic và bộ nhãn LapZone có development/hold-out split.
 
 Đang định hướng phát triển:
 
 - Hybrid retrieval: dense vector + keyword/BM25.
 - Query rewriting, multi-query và reranking.
-- Hold-out evaluation với Hit Rate@K, Recall@K, MRR và citation accuracy.
+- Mở rộng benchmark sang nhiều tài liệu và công bố dense/advanced ablation sau khi chạy ổn định.
 - Sourced summary, quiz và mind map.
 - Persistent authentication/identity cho cloud multi-user.
 - Streaming answer và trải nghiệm chat nâng cao.
