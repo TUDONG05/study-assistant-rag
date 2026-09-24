@@ -32,9 +32,18 @@ _RESPONSE_SCHEMA: dict[str, Any] = {
 
 
 class GroundedAnswerService:
-    def __init__(self, client: Any, *, model: str) -> None:
+    def __init__(
+        self,
+        client: Any,
+        *,
+        model: str,
+        temperature: float = 0.0,
+        seed: int = 0,
+    ) -> None:
         self.client = client
         self.model = model
+        self.temperature = temperature
+        self.seed = seed
 
     def answer(
         self,
@@ -56,6 +65,8 @@ class GroundedAnswerService:
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
                     response_schema=_RESPONSE_SCHEMA,
+                    temperature=self.temperature,
+                    seed=self.seed,
                 ),
             )
         except Exception as exc:

@@ -36,6 +36,7 @@ class RetrievalTrace:
     selected_document_ids: tuple[str, ...]
     history_turns: int
     candidate_count: int
+    effective_queries: tuple[str, ...] = ()
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)

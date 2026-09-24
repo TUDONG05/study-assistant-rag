@@ -91,7 +91,8 @@ def test_valid_inline_and_structured_citations_use_trusted_metadata() -> None:
         }
     ]
     assert "dữ liệu không đáng tin cậy" in rules
-    assert config.temperature is None
+    assert config.temperature == 0.0
+    assert config.seed == 0
 
 
 @pytest.mark.parametrize(
