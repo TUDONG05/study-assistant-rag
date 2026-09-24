@@ -94,6 +94,45 @@ def test_transient_embedding_failure_retries_with_backoff() -> None:
     assert sleeps == [1.0]
 
 
+def test_provider_retry_delay_overrides_short_local_backoff() -> None:
+    models = _EmbeddingModels(dimension=3, failures=1)
+    sleeps: list[float] = []
+
+    original_embed = models.embed_content
+
+    def quota_limited(*, contents: Sequence[object], **kwargs: object) -> SimpleNamespace:
+        if models.calls == 0:
+            models.calls += 1
+            raise RuntimeError("429 RESOURCE_EXHAUSTED: retryDelay': '37.5s'")
+        return original_embed(contents=contents, **kwargs)
+
+    models.embed_content = quota_limited  # type: ignore[method-assign]
+
+    vectors = _provider(models, sleep=sleeps.append).embed_documents(["a"], title="Lesson")
+
+    assert len(vectors) == 1
+    assert sleeps == [37.5]
+
+
+def test_provider_retry_delay_is_capped() -> None:
+    models = _EmbeddingModels(dimension=3, failures=1)
+    sleeps: list[float] = []
+
+    original_embed = models.embed_content
+
+    def quota_limited(*, contents: Sequence[object], **kwargs: object) -> SimpleNamespace:
+        if models.calls == 0:
+            models.calls += 1
+            raise RuntimeError("429 RESOURCE_EXHAUSTED: retryDelay: 999999999999999999s")
+        return original_embed(contents=contents, **kwargs)
+
+    models.embed_content = quota_limited  # type: ignore[method-assign]
+
+    _provider(models, sleep=sleeps.append).embed_documents(["a"], title="Lesson")
+
+    assert sleeps == [60.0]
+
+
 def test_embedding_dimension_mismatch_is_rejected_without_retry() -> None:
     models = _EmbeddingModels(dimension=2)
 

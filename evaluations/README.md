@@ -4,6 +4,10 @@ Thư mục này chứa nhãn đánh giá có phiên bản cho Study Assistant. C
 `Nhóm3_TTCSN.docx`, là tài liệu do chủ dự án cho phép sử dụng. File DOCX gốc không được commit;
 hãy lập chỉ mục file đó trong workspace local trước khi chạy benchmark.
 
+Dataset `lapzone-v1.json` hiện ở phiên bản `2.0.0`, đã gán nhãn lại theo corpus hash và
+fingerprint ingestion đang active. Hai câu hỏi ReactJS được chuyển thành unanswerable vì bản
+DOCX này không còn chứa bằng chứng cho các cơ chế ReactJS cũ.
+
 ## Quy tắc gán nhãn
 
 - `relevant_sources` dùng đúng nhãn nguồn sau bước chunking, ví dụ `Đoạn 25–34` hoặc `Bảng 1`.
@@ -13,6 +17,13 @@ hãy lập chỉ mục file đó trong workspace local trước khi chạy bench
 - `required_terms` ghi mã, tên riêng hoặc thuật ngữ không được làm mất khi biến đổi truy vấn.
 - `development` dùng để điều chỉnh cấu hình; không điều chỉnh theo kết quả `holdout`.
 - Mỗi thay đổi nhãn phải tăng `dataset_version` hoặc `corpus_version` tương ứng.
+
+## Tiêu chí chốt baseline
+
+Phase 5 được chốt khi dataset đã qua validation, pipeline fingerprint và corpus hash khớp nhãn,
+benchmark hold-out chạy thành công và report được lưu cùng version dataset. Các chỉ số là số đo
+baseline để so sánh regression; không phải quality gate cho production khi corpus hiện chỉ có một
+tài liệu. Không điều chỉnh chunking, prompt hoặc nhãn theo kết quả hold-out.
 
 ## Chạy dense baseline
 

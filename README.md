@@ -237,7 +237,7 @@ uv run --with-requirements requirements-dev.txt python -m pytest
 
 Bộ test hiện tại bao phủ cấu hình, client lifecycle, ingestion, Qdrant storage, retrieval scope,
 grounded chat, citation contract, evaluation metrics/runner, session state và Streamlit navigation.
-Lần xác minh gần nhất có **118 test passed**.
+Lần xác minh gần nhất có **120 test passed**.
 
 ## Phạm vi hiện tại và roadmap
 

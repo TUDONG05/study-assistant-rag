@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import re
 import time
 from collections.abc import Callable, Sequence
 from typing import Any, Protocol
 
 from google.genai import types
+
+MAX_PROVIDER_RETRY_DELAY_SECONDS = 60.0
 
 
 class EmbeddingError(RuntimeError):
@@ -82,6 +85,13 @@ class GeminiEmbeddingProvider:
                 last_error = exc
                 if attempt >= self.max_retries:
                     break
-                # Tăng dần thời gian chờ khi gặp lỗi tạm thời từ mạng hoặc provider.
-                self.sleep(float(2**attempt))
+                # Provider 429 có thể trả retryDelay dài hơn exponential backoff cục bộ.
+                self.sleep(max(float(2**attempt), _provider_retry_delay(exc)))
         raise EmbeddingError("Không thể tạo embedding sau nhiều lần thử.") from last_error
+
+
+def _provider_retry_delay(error: Exception) -> float:
+    """Extract Gemini's suggested retry delay, falling back to immediate backoff."""
+
+    match = re.search(r"retryDelay[^0-9]*(\d+(?:\.\d+)?)s", str(error))
+    return min(float(match.group(1)), MAX_PROVIDER_RETRY_DELAY_SECONDS) if match else 0.0
