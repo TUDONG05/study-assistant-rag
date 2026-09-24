@@ -12,6 +12,7 @@ from src.ingestion.versioning import make_pipeline_version
 from src.retrieval import (
     ConversationTurn,
     DenseRetriever,
+    HybridRetriever,
     RetrievalError,
     RetrievalRequest,
     Retriever,
@@ -256,3 +257,28 @@ def test_dense_retriever_implements_shared_protocol_and_requires_workspace() -> 
     assert isinstance(retriever, Retriever)
     with pytest.raises(RetrievalError, match="Workspace"):
         retriever.retrieve(RetrievalRequest(question="Câu hỏi", workspace_id="  "))
+
+
+def test_hybrid_reranks_dense_candidates_using_lexical_evidence() -> None:
+    client, collections, documents, vectors, embedder = _setup()
+    dense_first = _record("workspace-a", name="dense-first", version="v1")
+    lexical_match = _record("workspace-a", name="lexical-match", version="v2")
+    for record in (dense_first, lexical_match):
+        documents.commit(record)
+    _upsert_chunk(
+        client, collections.chunks, _payload(dense_first, text="generic study notes"), [1, 0, 0]
+    )
+    _upsert_chunk(
+        client,
+        collections.chunks,
+        _payload(lexical_match, text="BM25 lexical retrieval evidence"),
+        [0.9, 0.1, 0],
+    )
+
+    result = HybridRetriever(_retriever(documents, vectors, embedder), top_k=2).retrieve(
+        RetrievalRequest(question="BM25 retrieval", workspace_id="workspace-a")
+    )
+
+    assert result.trace.strategy_id == "hybrid-dense-bm25"
+    assert result.chunks[0].original_text == "BM25 lexical retrieval evidence"
+    assert [chunk.source_id for chunk in result.chunks] == ["S1", "S2"]

@@ -14,7 +14,7 @@ from src.chat import GroundedAnswerService
 from src.config import AppSettings, StorageMode, load_settings
 from src.evaluation import EvaluationConfig, load_dataset, run_evaluation, write_report
 from src.ingestion.embeddings import GeminiEmbeddingProvider
-from src.retrieval import DenseRetriever
+from src.retrieval import DenseRetriever, HybridRetriever
 from src.storage import DocumentStore, QdrantCollections, VectorStore, ensure_collections
 
 
@@ -39,7 +39,7 @@ def main() -> None:
             api_key=api_key,
             http_options=types.HttpOptions(timeout=settings.request_timeout_ms),
         )
-        retriever = DenseRetriever(
+        dense_retriever = DenseRetriever(
             document_store=document_store,
             vector_store=vector_store,
             embedding_provider=GeminiEmbeddingProvider(
@@ -49,9 +49,14 @@ def main() -> None:
                 batch_size=settings.embedding_batch_size,
                 max_retries=settings.embedding_max_retries,
             ),
-            top_k=settings.retrieval_top_k,
+            top_k=settings.retrieval_top_k * (3 if args.strategy == "hybrid" else 1),
             score_threshold=settings.retrieval_score_threshold,
             max_question_chars=settings.max_question_chars,
+        )
+        retriever = (
+            HybridRetriever(dense_retriever, top_k=settings.retrieval_top_k)
+            if args.strategy == "hybrid"
+            else dense_retriever
         )
         config = EvaluationConfig(
             strategy_id=retriever.strategy_id,
@@ -97,6 +102,7 @@ def _arguments() -> argparse.Namespace:
         type=Path,
         default=Path("evaluations/datasets/lapzone-v1.json"),
     )
+    parser.add_argument("--strategy", choices=("dense", "hybrid"), default="dense")
     parser.add_argument("--split", choices=("development", "holdout"), default="holdout")
     parser.add_argument("--workspace-id", default="local-default")
     parser.add_argument("--output-dir", type=Path, default=Path("evaluations/results"))
@@ -115,8 +121,7 @@ def _qdrant_client(settings: AppSettings) -> QdrantClient:
             timeout=max(1, settings.request_timeout_ms // 1_000),
         )
     raise SystemExit(
-        "Benchmark CLI không hỗ trợ STORAGE_MODE=demo "
-        "vì dữ liệu chỉ tồn tại trong session."
+        "Benchmark CLI không hỗ trợ STORAGE_MODE=demo vì dữ liệu chỉ tồn tại trong session."
     )
 
 

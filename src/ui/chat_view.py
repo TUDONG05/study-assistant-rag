@@ -16,6 +16,7 @@ from src.ingestion.versioning import is_current_pipeline_version
 from src.retrieval import (
     ConversationTurn,
     DenseRetriever,
+    HybridRetriever,
     RetrievalError,
     RetrievalRequest,
     RetrievalTrace,
@@ -90,7 +91,7 @@ def render(settings: AppSettings) -> None:
     with st.chat_message("assistant"), st.spinner("Đang tìm bằng chứng…"):
         try:
             gemini = get_gemini_client(api_key, settings.request_timeout_ms)
-            retriever = DenseRetriever(
+            dense_retriever = DenseRetriever(
                 document_store=document_store,
                 vector_store=vector_store,
                 embedding_provider=GeminiEmbeddingProvider(
@@ -100,11 +101,11 @@ def render(settings: AppSettings) -> None:
                     batch_size=settings.embedding_batch_size,
                     max_retries=settings.embedding_max_retries,
                 ),
-                top_k=settings.retrieval_top_k,
+                top_k=settings.retrieval_top_k * 3,
                 score_threshold=settings.retrieval_score_threshold,
                 max_question_chars=settings.max_question_chars,
             )
-            retrieval = retriever.retrieve(
+            retrieval = HybridRetriever(dense_retriever, top_k=settings.retrieval_top_k).retrieve(
                 RetrievalRequest(
                     question=normalized,
                     history=history,
