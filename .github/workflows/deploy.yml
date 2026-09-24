@@ -4,32 +4,64 @@ on:
   workflow_dispatch:
   workflow_run:
     workflows: [CI]
-    branches: [main]
+    branches: [main, develop]
     types: [completed]
 
 permissions:
   contents: read
 
 concurrency:
-  group: production-deploy
+  group: deploy-${{ github.event.workflow_run.head_branch || 'production' }}
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  deploy-staging:
     if: >-
-      (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success')
+      github.event_name == 'workflow_run'
+      && github.event.workflow_run.conclusion == 'success'
+      && github.event.workflow_run.event == 'push'
+      && github.event.workflow_run.head_repository.full_name == github.repository
+      && github.event.workflow_run.head_branch == 'develop'
+      && vars.STAGING_DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: staging
+    env:
+      DEPLOY_HOOK_URL: ${{ secrets.STAGING_DEPLOY_HOOK_URL }}
+      DEPLOY_HEALTHCHECK_URL: ${{ secrets.STAGING_HEALTHCHECK_URL }}
+      DEPLOYMENT_TARGET: staging
+      DEPLOYMENT_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - name: Deploy and verify staging
+        run: bash .github/scripts/trigger-deployment.sh
+
+  deploy-production:
+    if: >-
+      ((github.event_name == 'workflow_dispatch'
+      && github.ref == 'refs/heads/main')
+      || (github.event.workflow_run.conclusion == 'success'
+      && github.event.workflow_run.event == 'push'
+      && github.event.workflow_run.head_repository.full_name == github.repository
+      && github.event.workflow_run.head_branch == 'main'))
       && vars.DEPLOY_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: production
     env:
       DEPLOY_HOOK_URL: ${{ secrets.DEPLOY_HOOK_URL }}
+      DEPLOY_HEALTHCHECK_URL: ${{ secrets.PRODUCTION_HEALTHCHECK_URL }}
+      DEPLOYMENT_TARGET: production
+      DEPLOYMENT_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
 
     steps:
-      - name: Trigger configured deployment hook
-        run: |
-          if [ -z "$DEPLOY_HOOK_URL" ]; then
-            echo "DEPLOY_HOOK_URL is not configured."
-            exit 1
-          fi
-          curl --fail --silent --show-error --request POST "$DEPLOY_HOOK_URL"
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - name: Deploy and verify production
+        run: bash .github/scripts/trigger-deployment.sh

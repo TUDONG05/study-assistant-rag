@@ -99,19 +99,29 @@ Gemini sử dụng mô hình BYOK: nhập API key trong sidebar sau khi ứng d�
 
 ## CI/CD
 
-GitHub Actions chạy lint (Ruff), type-check (mypy) và test (pytest) trên mọi pull request và
-mọi lần push. Workflow luôn tạo môi trường Python 3.11 riêng từ `requirements-dev.txt`; không
-dùng các executable có thể đã được cài toàn cục trên runner.
+GitHub Actions chạy workflow lint (actionlint), lint (Ruff), type-check (mypy), test (pytest)
+và kiểm tra lỗ hổng dependency (`pip-audit`) trên mọi pull request và mọi lần push. Môi trường
+Python 3.11 được tái lập từ `uv.lock` bằng `uv sync --locked --group dev`; CI sẽ fail nếu lockfile
+không khớp manifest.
 
-Workflow `Deploy` chỉ kích hoạt sau khi CI của nhánh `main` thành công, hoặc khi chạy thủ công.
-Để bật deploy hook, cấu hình tại repository GitHub:
+Workflow `Deploy` triển khai vào **staging** sau khi CI của nhánh `develop` thành công và vào
+**production** sau khi CI của nhánh `main` thành công. Chạy thủ công vẫn là deploy production.
+Vì workflow `workflow_run` phải tồn tại trên nhánh mặc định, hãy merge thay đổi workflow này vào
+`main` trước khi kỳ vọng deploy tự động chạy.
+Để bật các deploy hook, cấu hình tại repository GitHub:
 
-1. Thêm **Repository variable** `DEPLOY_ENABLED` với giá trị `true`.
-2. Thêm **Repository secret** `DEPLOY_HOOK_URL` là URL webhook/deploy hook của nền tảng triển khai.
-3. Tạo environment `production` nếu muốn yêu cầu phê duyệt trước khi deploy.
+1. Cho production: thêm **Repository variable** `DEPLOY_ENABLED=true`, **Repository secrets**
+   `DEPLOY_HOOK_URL` (URL webhook deploy) và `PRODUCTION_HEALTHCHECK_URL`.
+2. Cho staging: thêm **Repository variable** `STAGING_DEPLOY_ENABLED=true`, **Repository secrets**
+   `STAGING_DEPLOY_HOOK_URL` và `STAGING_HEALTHCHECK_URL`.
+
+Deploy chỉ được ghi nhận thành công khi health-check trả về HTTP 2xx và header `X-Deployment-SHA` khớp SHA đã được deploy. Deploy hook phải dùng header `X-Deployment-SHA` làm idempotency key và triển khai đúng revision đó. Bảo vệ `main` và
+`develop` bằng required status checks `Validate GitHub Actions workflows` và `Lint, type-check,
+and test`; đồng thời bật GitHub secret scanning, push protection và Dependabot security updates.
 
 Nếu ứng dụng được kết nối trực tiếp với Streamlit Community Cloud qua GitHub, việc push lên
-nhánh deploy của Streamlit Cloud đã tự kích hoạt deploy; không cần đặt hai cấu hình hook trên.
+nhánh deploy tương ứng của Streamlit Cloud đã tự kích hoạt deploy; không cần đặt webhook cho
+môi trường đó.
 
 ## Cách sử dụng
 
